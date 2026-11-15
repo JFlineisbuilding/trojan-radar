@@ -23,7 +23,7 @@ npm test
 
 - Public USC Calendar and EngageSC feed retrieval, cached results and a dated fallback snapshot.
 - My Preferences with selectable interests and free-text goals for career and social discovery.
-- Rules-based recommendations and Ask USC search grounded in the event pool.
+- Interest-matched recommendations and Ask USC search grounded in the event pool. Netlify AI Gateway adds model-based ranking when runtime credentials are available.
 - Date ranges, eligibility filtering, event-series grouping and calendar conflict checks.
 - Calendar file import and an interactive Leaflet map. Google Maps and Google Calendar need separate configuration.
 - Poster and pasted-email submissions saved for review, plus pending organization verification requests.
@@ -38,18 +38,18 @@ The dated fallback covers event records collected during the November 2026 hacka
 
 ## Integrations and limits
 
-- Current matching uses rules. An optional server-side AI gateway is implemented but no external model is configured by default.
+- Netlify Functions use the OpenAI SDK with Netlify AI Gateway runtime credentials when available. The default model is `gpt-4.1-mini`, configurable with `RADAR_OPENAI_MODEL`. Model calls consume included Netlify credits. AI ranking is cached for ten minutes per profile and event set. The API function limits requests to 30 per minute per IP/domain. The interface labels a rule fallback explicitly when AI is unavailable. Model output is restricted to real eligible event IDs.
 - USC app sign-in is not connected. Opening the university portal does not create an app session.
 - Google Calendar OAuth requires your own registered client, redirect URI and server encryption key.
 - The proposed CC inbox is not active. Email delivery requires an authorized service, webhook secret and sender verification.
 - Organization verification requests remain pending. This release does not implement a staffed approval operation or automatic public publishing.
 - No public website deployment is implied by this GitHub repository.
 
-Copy `.env.example` to `.env` only when configuring optional local integrations. Keep all real secrets on the server. The AI gateway contract accepts `{task,instructions,input}`. Search returns `{ids,answer}` restricted to provided event IDs. Extraction returns `{events}` and requires review.
+Copy `.env.example` to `.env` only when configuring optional local integrations. Keep all real secrets on the server. The optional external AI gateway contract accepts `{task,instructions,input}`. Search returns `{ids,answer}` restricted to provided event IDs. Extraction returns `{events}` and requires review.
 
 ## Netlify deployment
 
-Import this repository into Netlify. The included `netlify.toml` sets the build command, static publish directory and API functions directory. It uses Node.js 22. The build produces the interface in `dist/public` and a serverless function for `/api/*` in `dist/functions`. Activity retrieval, matching and Ask USC run on the server. Private account imports and external AI credentials are not bundled.
+Import this repository into Netlify. The included `netlify.toml` sets the build command, static publish directory and API functions directory. It uses Node.js 22. The build produces the interface in `dist/public` and a serverless function for `/api/*` in `dist/functions`. Activity retrieval, matching and Ask USC run on the server. Private account imports and AI credentials are not bundled. The model receives interest text, extracted topic labels and public event facts. It does not receive the resume file, full resume text, name or email through the recommendation endpoint.
 
 The Netlify adapter saves poster uploads, pasted event emails and organizer requests as private pending-review objects in Netlify Blobs. There is no public read endpoint or automatic publishing. Production and preview storage use separate names. This intake adapter is not a general SQL database or an authenticated organizer account system. Google Calendar OAuth and inbound email remain separate integrations. Publishing this prototype does not activate those integrations automatically.
 

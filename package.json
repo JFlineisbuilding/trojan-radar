@@ -12,6 +12,7 @@
     "node": ">=22.13.0"
   },
   "dependencies": {
-    "@netlify/blobs": "11.1.9"
+    "@netlify/blobs": "11.1.9",
+    "openai": "7.57.0"
   }
 }
