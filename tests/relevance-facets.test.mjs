@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {personalRecommendations} from '../worker/personal-recommendations.mjs';
-import {browseEventModel,preferenceMatches,eventPrimaryType} from '../public/discovery.js';
+import {browseEventModel,preferenceMatches,eventPrimaryType,eventCategory} from '../public/discovery.js';
 import {eligibilityDecision} from '../public/eligibility.js';
 const start=new Date(Date.now()+86400000).toISOString();
 const event=(id,title,description='',extra={})=>({id,title,description,type:'Talk',host:'USC',eligibility:'Open to the public',start,...extra});
@@ -39,4 +39,9 @@ test('academic AI reading groups are research seminars, distinct from practical 
  const reading=event('reading','IETC Reading Group: An Interdisciplinary Reading Group on AI, Philosophy, and Society','',{type:'Workshop'});
  assert.equal(eventPrimaryType(reading),'Research seminars');
  assert.equal(eventPrimaryType(event('practice','AI Literacy: Think Smarter, Prompt Better','',{type:'Workshop'})),'Skills workshops');
+});
+
+test('academic history series do not masquerade as social cultural recommendations',()=>{
+ const e=event('history','EMSI American Landmarks','A discussion of historical culture',{type:'Social',host:'Early Modern Studies Institute (EMSI)'});
+ assert.equal(eventCategory(e),'career');assert.equal(eventPrimaryType(e),'Research seminars');assert.deepEqual(preferenceMatches(e,{careerInterests:'marketing',socialInterests:'culture'}),[]);
 });
