@@ -1,3 +1,4 @@
+import {eligibilityDecision} from '../public/eligibility.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {recommendEvents} from '../public/recommendation.js';
@@ -47,4 +48,15 @@ test('AI is rerun after preferences change and receives topics rather than raw r
  assert.ok(!JSON.stringify(passed).includes('PRIVATE_ADDRESS'));
  await personalRecommendations({profile:{careerInterests:'finance'}},{},data,run);
  assert.equal(calls,2);
+});
+
+
+// The live USC Calendar explicitly marks eligible student audiences outside description text.
+test('USC audience metadata enables student listings while restrictions remain hard gates',async()=>{
+ const {normalizeUSC}=await import('../worker/data.mjs');
+ const listing=description=>normalizeUSC({events:[{event:{id:1,title:'AI workshop',description_text:description,filters:{event_audience:[{name:'Students'}]},event_instances:[{event_instance:{id:2,start:'2026-11-20T10:00:00-08:00'}}]}}]})[0];
+ assert.equal(eligibilityDecision(listing('AI workshop for students.'),{school:'Marshall',year:'Senior',graduationYear:'2027'}).eligible,true);
+ assert.equal(eligibilityDecision(listing('Viterbi students only.'),{school:'Marshall'}).eligible,false);
+ assert.equal(eligibilityDecision(listing('Must be a registered member.'),{school:'Marshall'}).eligible,false);
+ assert.equal(eligibilityDecision(listing('Only for students graduating in 2029.'),{school:'Marshall',graduationYear:'2027'}).eligible,false);
 });
