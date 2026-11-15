@@ -60,3 +60,34 @@ test('USC audience metadata enables student listings while restrictions remain h
  assert.equal(eligibilityDecision(listing('Must be a registered member.'),{school:'Marshall'}).eligible,false);
  assert.equal(eligibilityDecision(listing('Only for students graduating in 2029.'),{school:'Marshall',graduationYear:'2027'}).eligible,false);
 });
+
+
+test('tag-only edits override dormant AI text, words-only overrides dormant tags, both is explicit',async()=>{
+ const {preferenceContext}=await import('../public/discovery.js');
+ const pool=[event('ai','Artificial intelligence workshop'),event('marketing','Marketing brand strategy workshop')];
+ const p={careerGoal:'I want AI events.',careerInterests:'marketing',careerPreferenceMode:'tags'};
+ assert.deepEqual(preferenceContext(p,'career').goal,'');
+ assert.deepEqual(recommendEvents(pool,p).map(e=>e.id),['marketing']);
+ assert.deepEqual(recommendEvents(pool,{...p,careerPreferenceMode:'words'}).map(e=>e.id),['ai']);
+ assert.equal(recommendEvents(pool,{...p,careerPreferenceMode:'both'}).length,2);
+});
+test('AI receives only the active input method and returns real inventory counts',async()=>{
+ let received;
+ const data={events:[event('ai','Artificial intelligence workshop'),event('marketing','Marketing workshop')]};
+ const r=await personalRecommendations({profile:{careerPreferenceMode:'tags',careerGoal:'AI old hidden draft',careerInterests:'marketing'}},{},data,async(_env,_task,input)=>{received=input;return {career:[{id:'marketing',reason:'Marketing workshop.'}],social:[]}});
+ assert.equal(received.profile.careerGoal,'');assert.equal(received.profile.careerInterests,'marketing');
+ assert.equal(r.counts.pool,2);assert.equal(r.counts.careerCandidates,2);assert.equal(r.career[0],'marketing');assert.equal(r.matchTypes.ai,'discovery');
+});
+
+
+test('weekly recommendations fill five with transparent broader picks and respect client filters',async()=>{
+ const data={events:Array.from({length:8},(_,i)=>event('weekly-'+i,i===0?'Marketing strategy talk':'Research seminar '+i))};
+ const result=await personalRecommendations({profile:{careerInterests:'marketing'},candidateIds:data.events.slice(0,6).map(e=>e.id)},{},data,async()=>({career:[{id:'weekly-0',reason:'Brand strategy.',match:'direct'}],social:[]}));
+ assert.equal(result.career.length,5);assert.equal(result.career[0],'weekly-0');assert.equal(result.matchTypes['weekly-1'],'discovery');assert.ok(!result.career.includes('weekly-7'));
+ assert.equal(result.counts.eligibleOnDates,6);
+});
+test('a sparse day returns the actual eligible count instead of future or invented events',async()=>{
+ const data={events:[event('one-real','Marketing talk'),{...event('wrong-year','Marketing talk 2029'),attendance:{scope:'public',gradYears:[2029]}}]};
+ const result=await personalRecommendations({profile:{careerInterests:'marketing',graduationYear:'2027'}},{},data,async()=>null);
+ assert.deepEqual(result.career,['one-real']);assert.equal(result.engine,'rules');
+});
