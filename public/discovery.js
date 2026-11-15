@@ -31,6 +31,7 @@ export function eventPrimaryType(e){
  const text=String(e.title||'').toLowerCase(),type=e.type||'';
  if(eventCategory(e)==='career'){
   if(/info(?:rmation)?[ -]sessions?/.test(text)||type==='Info session')return 'Info sessions';
+  if(/reading group|journal club|colloquium|dissertation|research seminar/.test(text))return 'Research seminars';
   if(/workshop|training|bootcamp|tutorial/.test(text))return 'Skills workshops';
   if(/hackathon|datathon|code.?fest/.test(text))return 'Hackathons';
   if(/case(?: study)? compet|case challenge|business competition|consulting (?:competition|challenge)|strategy competition/.test(text)||e.activityType==='case-competition')return 'Case competitions';
@@ -69,7 +70,7 @@ export function eventTypeMatches(e,type){
 export function eventPerks(e){const text=(e.title+' '+e.description).toLowerCase();return {freeFood:!e.perks?.freeFoodRequiresMembership?.length&&(!!e.perks?.freeFood||(!/no free (food|snacks|meals)/.test(text)&&/free (food|pizza|snacks|lunch|dinner|boba|refreshments|drinks)|complimentary (food|snacks|lunch|refreshments)|snacks provided|lunch provided/.test(text))),freeSamples:!!e.perks?.freeSamples||/free samples?|complimentary samples?|brand sampling/.test(text)}}
 export function profileTopics(text){const words=['AI','marketing','strategy','business','finance','accounting','consulting','entrepreneurship','design','product','engineering','software','Python','data','research','film','media','communications','writing','music','health','law','sustainability'];return words.filter(w=>new RegExp('\\b'+w+'\\b','i').test(text||''))}
 export function preferenceContext(profile,kind){const career=kind==='career',mode=profile[kind+'PreferenceMode'];return {goal:mode==='tags'?'':career?(profile.careerGoal??profile.goal??''):(profile.socialGoal||''),interests:mode==='words'?'':career?(profile.careerInterests??profile.interests??''):(profile.socialInterests||''),documents:career?(profile.careerDocuments||{}):{}}}
-const INTEREST_ALIASES={creators:'creators?|influencers?|social media|content strategy|short form video',korean:'korea[n]?|k.drama|k.pop|korean cinema',ai:'ai|artificial intelligence|machine learning|generative ai|llms?',marketing:'marketing|brand strategy|branding|brand partnerships?|advertising|consumer insights?|consumer behavio[u]?r|creator economy|digital commerce',strategy:'strategy|strategic',consulting:'consulting|consultants?|case interviews?|mckinsey|bain|boston consulting group|bcg',entrepreneurship:'entrepreneurship|entrepreneurs?|startups?|new ventures?|founders?',finance:'finance|financial|investment|investing|banking',product:'product management|product design|product development',data:'data|analytics|statistical',software:'software|programming|coding|computing',film:'film|cinema|screenings?|movies?',music:'music|concerts?|jazz|orchestra|recitals?',culture:'cultur(?:e|al)|heritage|celebrations?',sports:'sports?|fitness|athletic|workouts?',outdoors:'outdoor|hiking|adventure',volunteering:'volunteering|volunteers?|community service|beach clean',wellness:'wellness|meditation|mindfulness|yoga',food:'food|tasting|cooking',games:'games?|mahjong|bingo',theater:'theat(?:er|re)|dance|opera',art:'art|exhibitions?|galleries',crafts:'crafts?|creative workshop|pin making',community:'community|hangouts?|gatherings?',health:'health|biotech|medicine|medical',law:'law|legal|policy',communications:'communications?|public relations|journalism',education:'education|teaching|learning',sustainability:'sustainability|climate|environmental'};
+const INTEREST_ALIASES={creators:'creators?|influencers?|social media|content strategy|short form video',korean:'korea[n]?|k.drama|k.pop|korean cinema',ai:'ai|artificial intelligence|machine learning|generative ai|llms?|chatgpt|copilot|prompt engineering',marketing:'marketing|brand strategy|branding|brand partnerships?|advertising|consumer insights?|consumer behavio[u]?r|creator economy|digital commerce|content strategy|audience engagement|digital storytelling',strategy:'strategy|strategic',consulting:'consulting|consultants?|case interviews?|mckinsey|bain|boston consulting group|bcg',entrepreneurship:'entrepreneurship|entrepreneurs?|startups?|new ventures?|founders?',finance:'finance|financial|investment|investing|banking',product:'product management|product design|product development',data:'data|analytics|statistical',software:'software|programming|coding|computing',film:'film|cinema|screenings?|movies?',music:'music|concerts?|jazz|orchestra|recitals?',culture:'cultur(?:e|al)|heritage|celebrations?',sports:'sports?|fitness|athletic|workouts?',outdoors:'outdoor|hiking|adventure',volunteering:'volunteering|volunteers?|community service|beach clean',wellness:'wellness|meditation|mindfulness|yoga',food:'food|tasting|cooking',games:'games?|mahjong|bingo',theater:'theat(?:er|re)|dance|opera',art:'art|exhibitions?|galleries',crafts:'crafts?|creative workshop|pin making',community:'community|hangouts?|gatherings?',health:'health|biotech|medicine|medical',law:'law|legal|policy',communications:'communications?|public relations|journalism',education:'education|teaching|learning',sustainability:'sustainability|climate|environmental'};
 const PREFERENCE_STOP=new Set('want learn more about events event that combine and the with for would like some any can please this week interested interests activities activity love explore attend join meet people career careers social campus life looking student students usc opportunities opportunity work working field fields'.split(' '));
 function interestTokens(s){return [...new Set(String(s).toLowerCase().match(/[a-z]{3,}|\bai\b/g)||[])].filter(t=>!PREFERENCE_STOP.has(t))}
 function matchingTerms(e,s){const text=String(e.title||'')+' '+String(e.description||'');return interestTokens(s).filter(t=>new RegExp('\\b(?:'+(INTEREST_ALIASES[t]||t)+')\\b','i').test(text))}
@@ -84,3 +85,28 @@ export function groupEventSeries(events){const groups=new Map();for(const e of e
 export function activityPreferences(profile,kind){const valid=kind==='career'?CAREER_TYPES:SOCIAL_TYPES;return {preferred:(Array.isArray(profile[kind+'PreferredTypes'])?profile[kind+'PreferredTypes']:[]).filter(t=>valid.includes(t)),avoided:(Array.isArray(profile[kind+'AvoidedTypes'])?profile[kind+'AvoidedTypes']:[]).filter(t=>valid.includes(t))}}
 export function activityAllowed(e,profile){return !activityPreferences(profile,eventCategory(e)).avoided.includes(eventPrimaryType(e))}
 export function activityScore(e,profile){return activityPreferences(profile,eventCategory(e)).preferred.includes(eventPrimaryType(e))?8:0}
+
+// Counts and cards use the same date, search, format and availability context.
+export function browseEventModel(events,options={}){
+ const matches=chooseEvents(events,options),facets=groupEventSeries(chooseEvents(events,{...options,type:'All'}));
+ const counts=Object.fromEntries(['All',...CAREER_TYPES,...SOCIAL_TYPES].map(type=>[type,type==='All'?facets.length:facets.filter(e=>eventPrimaryType(e)===type).length]));
+ const outsideDates=groupEventSeries(chooseEvents(events,{...options,window:'all',startDate:'',endDate:''})).length;
+ return {matches,activities:groupEventSeries(matches),counts,outsideDates};
+}
+
+// Cover distinct selected interests before filling remaining slots. A preferred
+// format is a ranking signal, never a substitute for a topic match.
+export function selectInterestDiverse(events,profile,{limit=5,score=e=>preferenceScore(e,profile)}={}){
+ const pool=events.filter(e=>activityAllowed(e,profile)&&(!hasPreferences(profile,eventCategory(e))||preferenceMatches(e,profile).length));
+ const result=[],titles=new Set(),covered=new Set(),hosts=new Map();
+ while(result.length<limit){
+  let best=null,bestValue=-Infinity;
+  for(const e of pool){const key=String(e.title).toLowerCase().replace(/[^a-z0-9]/g,'');if(titles.has(key))continue;
+   const fresh=preferenceMatches(e,profile).filter(t=>!covered.has(t)).length;
+   const value=score(e)+fresh*8-(hosts.get(e.host)||0)*2;
+   if(value>bestValue){best=e;bestValue=value}
+  }
+  if(!best)break;result.push(best);titles.add(String(best.title).toLowerCase().replace(/[^a-z0-9]/g,''));preferenceMatches(best,profile).forEach(t=>covered.add(t));hosts.set(best.host,(hosts.get(best.host)||0)+1);
+ }
+ return result;
+}
