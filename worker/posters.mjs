@@ -1,0 +1,12 @@
+const posterJSON=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
+export function validatePoster(x){
+ if(!x||!['image/png','image/jpeg','image/webp'].includes(x.mime)||typeof x.image!=='string'||x.image.length>7*1024*1024||!/^[A-Za-z0-9+/]*={0,2}$/.test(x.image))return 'Choose a PNG, JPG or WebP poster smaller than 5 MB.';
+ let bytes;try{bytes=Uint8Array.from(atob(x.image),c=>c.charCodeAt(0))}catch{return 'The image could not be read.'}
+ if(bytes.length<12||bytes.length>5*1024*1024)return 'Choose an image smaller than 5 MB.';
+ const ok=x.mime==='image/png'?bytes.slice(0,8).join(',')==='137,80,78,71,13,10,26,10':x.mime==='image/jpeg'?bytes[0]===255&&bytes[1]===216&&bytes[bytes.length-2]===255&&bytes[bytes.length-1]===217:new TextDecoder().decode(bytes.slice(0,4))==='RIFF'&&new TextDecoder().decode(bytes.slice(8,12))==='WEBP';if(!ok)return 'The file does not match the selected image format.';
+ if(typeof x.name!=='string'||!x.name.trim()||x.name.length>200)return 'Choose an image with a valid filename.';
+ if(x.url&&(!/^https:\/\//i.test(x.url)||x.url.length>2000))return 'Use an HTTPS event link, or leave it empty.';
+ return null;
+}
+export async function handlePosterSubmission(request,env){if(new URL(request.url).pathname!=='/api/poster-submissions')return null;if(request.method!=='POST')return posterJSON({error:'Method not allowed'},405);let input;try{const raw=await request.text();if(raw.length>8*1024*1024)return posterJSON({error:'Poster too large'},413);input=JSON.parse(raw)}catch{return posterJSON({error:'Could not read this poster'},400)}const error=validatePoster(input);if(error)return posterJSON({error},400);if(!env.DB)return posterJSON({error:'Poster storage is unavailable. Your poster has not been submitted.'},503);
+ await env.DB.prepare('CREATE TABLE IF NOT EXISTS poster_submissions (id TEXT PRIMARY KEY, filename TEXT NOT NULL, mime TEXT NOT NULL, image_base64 TEXT NOT NULL, source_url TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL)').run();const id=crypto.randomUUID(),createdAt=new Date().toISOString();await env.DB.prepare('INSERT INTO poster_submissions (id,filename,mime,image_base64,source_url,status,created_at) VALUES (?,?,?,?,?,?,?)').bind(id,input.name,input.mime,input.image,input.url||'','awaiting_review',createdAt).run();return posterJSON({id,status:'awaiting_review',kind:'poster',title:input.name,createdAt,published:false},201)}
