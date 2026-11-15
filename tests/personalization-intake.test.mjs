@@ -76,14 +76,14 @@ test('AI receives only the active input method and returns real inventory counts
  const data={events:[event('ai','Artificial intelligence workshop'),event('marketing','Marketing workshop')]};
  const r=await personalRecommendations({profile:{careerPreferenceMode:'tags',careerGoal:'AI old hidden draft',careerInterests:'marketing'}},{},data,async(_env,_task,input)=>{received=input;return {career:[{id:'marketing',reason:'Marketing workshop.'}],social:[]}});
  assert.equal(received.profile.careerGoal,'');assert.equal(received.profile.careerInterests,'marketing');
- assert.equal(r.counts.pool,2);assert.equal(r.counts.careerCandidates,2);assert.equal(r.career[0],'marketing');assert.equal(r.matchTypes.ai,'discovery');
+ assert.equal(r.counts.pool,2);assert.equal(r.counts.careerCandidates,1);assert.deepEqual(r.career,['marketing']);assert.equal(r.matchTypes.ai,undefined);
 });
 
 
-test('weekly recommendations fill five with transparent broader picks and respect client filters',async()=>{
+test('weekly recommendations do not backfill unrelated events and respect client filters',async()=>{
  const data={events:Array.from({length:8},(_,i)=>event('weekly-'+i,i===0?'Marketing strategy talk':'Research seminar '+i))};
  const result=await personalRecommendations({profile:{careerInterests:'marketing'},candidateIds:data.events.slice(0,6).map(e=>e.id)},{},data,async()=>({career:[{id:'weekly-0',reason:'Brand strategy.',match:'direct'}],social:[]}));
- assert.equal(result.career.length,5);assert.equal(result.career[0],'weekly-0');assert.equal(result.matchTypes['weekly-1'],'discovery');assert.ok(!result.career.includes('weekly-7'));
+ assert.deepEqual(result.career,['weekly-0']);assert.equal(result.matchTypes['weekly-1'],undefined);assert.ok(!result.career.includes('weekly-7'));
  assert.equal(result.counts.eligibleOnDates,6);
 });
 test('a sparse day returns the actual eligible count instead of future or invented events',async()=>{
