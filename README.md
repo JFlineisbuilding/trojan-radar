@@ -6,7 +6,7 @@ A USC event discovery prototype with editable preferences, career and campus-lif
 
 ## Run locally
 
-Use Node.js 22.13 or later. No npm dependencies are required for local operation.
+Use Node.js 22.13 or later. No npm dependencies are required for local operation. Netlify deployment installs the pinned `@netlify/blobs` dependency for submission storage.
 
 ```sh
 npm run build
@@ -30,7 +30,9 @@ npm test
 
 ## Public release and privacy
 
-This repository omits private Gmail and Handshake account imports, raw account audit exports, the original personalized profile/photo, environment secrets, and local databases. Public event facts and source links remain. The original local prototype is separate and is not modified by this release.
+The public demo starts with an explicitly labeled Jacqueline sample profile and avatar, restored with the owner’s permission. Visitors can change preferences, which are stored in their browser.
+
+This repository omits private Gmail and Handshake account imports, raw account audit exports, private profile documents, environment secrets, and local databases. Public event facts and source links remain. The original local prototype is separate and is not modified by this release.
 
 The dated fallback covers event records collected during the November 2026 hackathon. Live sources may change or become unavailable. Event eligibility, registration, capacity and final admission remain with organizers. Public-source badges indicate provenance, not uploader verification.
 
@@ -49,7 +51,7 @@ Copy `.env.example` to `.env` only when configuring optional local integrations.
 
 Import this repository into Netlify. The included `netlify.toml` sets the build command, static publish directory and API functions directory. It uses Node.js 22. The build produces the interface in `dist/public` and a serverless function for `/api/*` in `dist/functions`. Activity retrieval, matching and Ask USC run on the server. Private account imports and external AI credentials are not bundled.
 
-The Netlify adapter does not provide a database binding. Organizer submissions and organization claims return an explicit storage-unavailable response until durable storage is configured. Google Calendar OAuth and inbound email remain separate integrations. Publishing this prototype does not activate those integrations automatically.
+The Netlify adapter saves poster uploads, pasted event emails and organizer requests as private pending-review objects in Netlify Blobs. There is no public read endpoint or automatic publishing. Production and preview storage use separate names. This intake adapter is not a general SQL database or an authenticated organizer account system. Google Calendar OAuth and inbound email remain separate integrations. Publishing this prototype does not activate those integrations automatically.
 
 ## Cloudflare deployment
 
