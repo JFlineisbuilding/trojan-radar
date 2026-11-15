@@ -43,7 +43,7 @@ The dated fallback covers event records collected during the November 2026 hacka
 - Google Calendar OAuth requires your own registered client, redirect URI and server encryption key.
 - The proposed CC inbox is not active. Email delivery requires an authorized service, webhook secret and sender verification.
 - Organization verification requests remain pending. This release does not implement a staffed approval operation or automatic public publishing.
-- No public website deployment is implied by this GitHub repository.
+- Live review website: https://trojan-radar.netlify.app/
 
 Copy `.env.example` to `.env` only when configuring optional local integrations. Keep all real secrets on the server. The optional external AI gateway contract accepts `{task,instructions,input}`. Search returns `{ids,answer}` restricted to provided event IDs. Extraction returns `{events}` and requires review.
 
@@ -55,7 +55,7 @@ The Netlify adapter saves poster uploads, pasted event emails and organizer requ
 
 ## Cloudflare deployment
 
-`node scripts/cloudflare-build.mjs` produces `dist/server/cloudflare.js` and separates static assets into `dist/public`. `wrangler.jsonc` configures both. Use the official Wrangler tooling or connect the repository to Cloudflare Workers Builds. A deployment account is required. For durable submissions, create a D1 database and bind it as `DB` in the deployment configuration. Without this binding, write endpoints return a storage-unavailable error rather than pretending to save data. Configure optional credentials as server secrets. This source release has not been deployed to a public URL.
+`node scripts/cloudflare-build.mjs` produces `dist/server/cloudflare.js` and separates static assets into `dist/public`. `wrangler.jsonc` configures both. Use the official Wrangler tooling or connect the repository to Cloudflare Workers Builds. A deployment account is required. For durable submissions, create a D1 database and bind it as `DB` in the deployment configuration. Without this binding, write endpoints return a storage-unavailable error rather than pretending to save data. Configure optional credentials as server secrets. The current public review deployment uses Netlify; this Cloudflare adapter is an alternative deployment path.
 
 Before opening a deployment to public submissions, establish app authentication, ownership checks, abuse controls, storage limits and a moderation process. The local prototype is intended for review and supervised testing.
 
@@ -78,3 +78,9 @@ On November 15, 2026, the account owner authorized review of the upcoming Handsh
 Additional reviewed sources include nine Annenberg department and Digital Lounge listings and seven newsletter leads cross-checked with the public Interstride schedule. Private portal sessions remain marked access unconfirmed. Source snapshots require future refresh; automatic Handshake, Gmail and Instagram synchronization is not configured.
 
 My Preferences separates interest topics from activity types. Each activity type can be preferred, avoided or left neutral. Avoided types are excluded on both client and server before AI ranking. Explore still shows them. Ask USC searches the full eligible event pool, with combined topic and activity-type checks for banking info-session requests.
+
+## Relevance and filter consistency
+
+Personal recommendations require both a saved-interest match and confirmed eligibility. Up to five relevant activities are selected per section, with coverage across distinct selected interests. Eligible but unrelated events never fill empty slots. Activity-format preferences affect ranking without replacing topic relevance. Original source evidence remains separate from model output. Interest matches with unknown access appear in a separate collapsed Matches to check section, without an eligibility claim. Known exclusions and closed registration never become recommendations.
+
+Explore type counts use the same active date, search, format, admission and calendar context as the cards. When a selected type has no results in the current dates, the empty state can show its available count outside the date range and an explicit action to widen dates.
