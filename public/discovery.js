@@ -1,5 +1,6 @@
 export function eventCategory(e){
  const title=(e.title||'').toLowerCase(),host=(e.host||'').toLowerCase();
+ if(/reading group|research seminar|colloquium|dissertation/.test(title)||/early modern studies institute|\bemsi\b/.test(host))return 'career';
  if(/christian challenge/i.test(host)||/thursday night challenge/i.test(title))return 'social';
  if(e.type==='Screening'||/screening|film showcase|movie night/i.test(title))return 'social';
  if(/space future|aerospace|career|recruit|internship|employer|network|linkedin|case competition|business|finance|venture|entrepreneur|product design|marketing|hackathon|investment|wealth management|\bai\b|artificial intelligence/.test(title)||/career center|business technology|investment society/.test(host))return 'career';
@@ -31,7 +32,7 @@ export function eventPrimaryType(e){
  const text=String(e.title||'').toLowerCase(),type=e.type||'';
  if(eventCategory(e)==='career'){
   if(/info(?:rmation)?[ -]sessions?/.test(text)||type==='Info session')return 'Info sessions';
-  if(/reading group|journal club|colloquium|dissertation|research seminar/.test(text))return 'Research seminars';
+  if(/reading group|journal club|colloquium|dissertation|research seminar/.test(text)||/early modern studies institute|\bemsi\b/i.test(e.host||''))return 'Research seminars';
   if(/workshop|training|bootcamp|tutorial/.test(text))return 'Skills workshops';
   if(/hackathon|datathon|code.?fest/.test(text))return 'Hackathons';
   if(/case(?: study)? compet|case challenge|business competition|consulting (?:competition|challenge)|strategy competition/.test(text)||e.activityType==='case-competition')return 'Case competitions';
