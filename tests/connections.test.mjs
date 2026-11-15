@@ -1,0 +1,39 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';
+import {handleGoogleCalendar,googleConfigured,sealCalendarTokens,openCalendarTokens} from '../worker/google-calendar.mjs';import {handleEmailIntake} from '../worker/email-intake.mjs';
+const storage=()=>{
+ const db=new DatabaseSync(':memory:');
+ const DB={prepare(sql){
+  return {
+   run:async()=>db.prepare(sql).run(),
+   bind(...args){return {run:async()=>db.prepare(sql).run(...args),first:async()=>db.prepare(sql).get(...args)}}
+  };
+ }};
+ return {db,DB};
+};
+const key=Buffer.alloc(32,7).toString('base64url');
+test('unconfigured Google connection stays disconnected and cannot fake an authorization',async()=>{assert.equal(googleConfigured({}),false);let r=await handleGoogleCalendar(new Request('http://localhost:4317/api/calendar/google/status'),{});assert.deepEqual(await r.json(),{configured:false,connected:false});r=await handleGoogleCalendar(new Request('http://localhost:4317/api/calendar/google/start'),{});assert.equal(r.status,503)});
+test('OAuth start uses read-only availability, state, nonce, PKCE and HttpOnly session; invalid callback cannot connect',async()=>{const {db,DB}=storage();const env={DB,GOOGLE_CLIENT_ID:'test-client',GOOGLE_CLIENT_SECRET:'test-secret',RADAR_TOKEN_ENCRYPTION_KEY:key};let r=await handleGoogleCalendar(new Request('http://localhost:4317/api/calendar/google/start'),env);assert.equal(r.status,302);const uri=new URL(r.headers.get('location'));assert.equal(uri.hostname,'accounts.google.com');assert.ok(uri.searchParams.get('nonce'));assert.ok(uri.searchParams.get('state'));assert.equal(uri.searchParams.get('code_challenge_method'),'S256');const scopes=uri.searchParams.get('scope');assert.ok(scopes.includes('calendar.events.freebusy'));assert.ok(!scopes.includes('calendar.events.readonly'));assert.match(r.headers.get('set-cookie'),/HttpOnly; SameSite=Lax/);const cookie=r.headers.get('set-cookie').split(';')[0];r=await handleGoogleCalendar(new Request('http://localhost:4317/api/calendar/google/callback?code=fake&state=wrong',{headers:{Cookie:cookie}}),env);assert.equal(r.headers.get('location'),'/?calendar_error=authorization#calendar');assert.equal(db.prepare('SELECT COUNT(*) AS count FROM calendar_sessions WHERE tokens IS NOT NULL').get().count,0);db.close()});
+test('OAuth tokens are encrypted and ciphertext tampering is rejected',async()=>{const env={RADAR_TOKEN_ENCRYPTION_KEY:key};const sealed=await sealCalendarTokens({refresh_token:'private-refresh',access_token:'private-access'},env);assert.ok(!sealed.includes('private'));assert.equal((await openCalendarTokens(sealed,env)).refresh_token,'private-refresh');const [iv,cipher]=sealed.split('.');await assert.rejects(()=>openCalendarTokens(iv+'.'+(cipher[0]==='A'?'B':'A')+cipher.slice(1),env))});
+async function signedEmail(body,secret='delivery-secret',seconds=Math.floor(Date.now()/1000)){const raw=JSON.stringify(body);const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const sig=Buffer.from(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(seconds+'.'+raw))).toString('hex');return new Request('https://radar.test/api/inbound/email',{method:'POST',headers:{'Content-Type':'application/json','X-Radar-Timestamp':String(seconds),'X-Radar-Signature':sig},body:raw})}
+test('signed mail enters private intake once; unknown senders are held and never published',async()=>{const {db,DB}=storage();const env={DB,RADAR_MAIL_WEBHOOK_SECRET:'delivery-secret',RADAR_INTAKE_EMAIL:'events@trojanradar.app'};const body={messageId:'test-message',from:'organizer@example.org',to:['events@trojanradar.app'],subject:'Test event',text:'An organizer announcement',auth:{dkim:'pass',dmarc:'pass'}};let r=await handleEmailIntake(await signedEmail(body),env);assert.equal(r.status,202);let receipt=await r.json();assert.equal(receipt.status,'held_for_verification');assert.equal(receipt.published,false);r=await handleEmailIntake(await signedEmail(body),env);assert.equal((await r.json()).duplicate,true);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM email_intake').get().n,1);r=await handleEmailIntake(await signedEmail(body,'wrong'),env);assert.equal(r.status,401);r=await handleEmailIntake(await signedEmail(body,'delivery-secret',1),env);assert.equal(r.status,401);db.close()});
+test('OAuth callback, private availability sync and revoke work together against a simulated provider',async()=>{
+ const {db,DB}=storage(),env={DB,GOOGLE_CLIENT_ID:'flow-client',GOOGLE_CLIENT_SECRET:'flow-secret',RADAR_TOKEN_ENCRYPTION_KEY:key};
+ const first=await handleGoogleCalendar(new Request('http://localhost:4317/api/calendar/google/start'),env),auth=new URL(first.headers.get('location')),cookie=first.headers.get('set-cookie').split(';')[0];
+ const pair=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
+ const jwk=await crypto.subtle.exportKey('jwk',pair.publicKey);jwk.kid='test-rotation-key';jwk.alg='RS256';jwk.use='sig';
+ const encode=x=>Buffer.from(JSON.stringify(x)).toString('base64url');const unsigned=encode({alg:'RS256',kid:jwk.kid})+'.'+encode({iss:'https://accounts.google.com',aud:env.GOOGLE_CLIENT_ID,nonce:auth.searchParams.get('nonce'),exp:Math.floor(Date.now()/1000)+3600,iat:Math.floor(Date.now()/1000),hd:'usc.edu',email_verified:true,email:'student@usc.edu'});
+ const signature=Buffer.from(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',pair.privateKey,new TextEncoder().encode(unsigned))).toString('base64url');
+ const previousFetch=globalThis.fetch;let freeBusyWasUsed=false;globalThis.fetch=async(url,init={})=>{
+  url=String(url);const reply=value=>new Response(JSON.stringify(value),{headers:{'Content-Type':'application/json'}});
+  if(url==='https://oauth2.googleapis.com/token')return reply({id_token:unsigned+'.'+signature,access_token:'private-access',refresh_token:'private-refresh',expires_in:3600,scope:'openid email https://www.googleapis.com/auth/calendar.calendarlist.readonly https://www.googleapis.com/auth/calendar.events.freebusy'});
+  if(url==='https://www.googleapis.com/oauth2/v3/certs')return reply({keys:[jwk]});
+  if(url.includes('/users/me/calendarList?'))return reply({items:[{id:'student@usc.edu',summary:'Primary',primary:true}]});
+  if(url==='https://www.googleapis.com/calendar/v3/freeBusy'){freeBusyWasUsed=true;assert.deepEqual(JSON.parse(init.body).items,[{id:'student@usc.edu'}]);return reply({calendars:{'student@usc.edu':{busy:[{start:'2026-11-16T18:00:00Z',end:'2026-11-16T19:00:00Z'}]}}})}
+  if(url==='https://oauth2.googleapis.com/revoke')return reply({});
+  throw Error('Unexpected provider request');
+ };
+ try{let r=await handleGoogleCalendar(new Request('http://localhost:4317/api/calendar/google/callback?code=provider-code&state='+auth.searchParams.get('state'),{headers:{Cookie:cookie}}),env);assert.equal(r.headers.get('location'),'/?calendar_connected=1#calendar');const stored=db.prepare('SELECT tokens FROM calendar_sessions').get().tokens;assert.ok(!stored.includes('private-refresh'));
+ r=await handleGoogleCalendar(new Request('http://localhost:4317/api/calendar/google/sync',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({calendarIds:['primary']})}),env);assert.equal(r.status,200);const busy=await r.json();assert.equal(freeBusyWasUsed,true);assert.equal(busy.entries.length,1);assert.equal(busy.entries[0].title,'Busy');assert.equal(busy.entries[0].description,undefined);
+ r=await handleGoogleCalendar(new Request('http://localhost:4317/api/calendar/google/disconnect',{method:'POST',headers:{Cookie:cookie}}),env);assert.equal(r.status,200);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM calendar_sessions').get().n,0);
+ }finally{globalThis.fetch=previousFetch;db.close()}
+});
