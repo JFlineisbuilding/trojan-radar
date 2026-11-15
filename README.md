@@ -45,9 +45,15 @@ The dated fallback covers event records collected during the November 2026 hacka
 
 Copy `.env.example` to `.env` only when configuring optional local integrations. Keep all real secrets on the server. The AI gateway contract accepts `{task,instructions,input}`. Search returns `{ids,answer}` restricted to provided event IDs. Extraction returns `{events}` and requires review.
 
+## Netlify deployment
+
+Import this repository into Netlify. The included `netlify.toml` sets the build command, static publish directory and API functions directory. It uses Node.js 22. The build produces the interface in `dist/public` and a serverless function for `/api/*` in `dist/functions`. Activity retrieval, matching and Ask USC run on the server. Private account imports and external AI credentials are not bundled.
+
+The Netlify adapter does not provide a database binding. Organizer submissions and organization claims return an explicit storage-unavailable response until durable storage is configured. Google Calendar OAuth and inbound email remain separate integrations. Publishing this prototype does not activate those integrations automatically.
+
 ## Cloudflare deployment
 
-`npm run build` produces `dist/server/index.js`. `wrangler.jsonc` provides a Worker entry point. Use the official Wrangler tooling or connect the repository to Cloudflare Workers Builds. A deployment account is required. For durable submissions, create a D1 database and bind it as `DB` in the deployment configuration. Without this binding, write endpoints return a storage-unavailable error rather than pretending to save data. Configure optional credentials as server secrets. This source release has not been deployed to a public URL.
+`node scripts/cloudflare-build.mjs` produces `dist/server/cloudflare.js` and separates static assets into `dist/public`. `wrangler.jsonc` configures both. Use the official Wrangler tooling or connect the repository to Cloudflare Workers Builds. A deployment account is required. For durable submissions, create a D1 database and bind it as `DB` in the deployment configuration. Without this binding, write endpoints return a storage-unavailable error rather than pretending to save data. Configure optional credentials as server secrets. This source release has not been deployed to a public URL.
 
 Before opening a deployment to public submissions, establish app authentication, ownership checks, abuse controls, storage limits and a moderation process. The local prototype is intended for review and supervised testing.
 
