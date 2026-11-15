@@ -384,7 +384,8 @@
     "imageCredit": "Original Handshake event artwork",
     "importedAt": "2026-11-15T14:30:00Z",
     "eligibilityCheckedAt": "2026-11-15T14:30:00Z",
-    "warning": "Reviewed listing snapshot. Confirm registration, capacity and eligibility on Handshake. External employer events do not imply USC endorsement."
+    "warning": "Reviewed listing snapshot. Confirm registration, capacity and eligibility on Handshake. External employer events do not imply USC endorsement.",
+    "registrationDeadline": "2026-11-18T01:00:00-08:00"
   },
   {
     "id": "handshake-1878385",
