@@ -10,5 +10,9 @@
   },
   "engines": {
     "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "@netlify/blobs": "8.1.0",
+    "openai": "4.104.0"
   }
 }
