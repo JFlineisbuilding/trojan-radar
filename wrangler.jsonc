@@ -1,0 +1,8 @@
+{
+  "name": "trojan-radar",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-11-14",
+  "build": {
+    "command": "npm run build"
+  }
+}
