@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import {normalizeUSC,normalizeEngage,dedupe} from '../worker/data.mjs';
 const here=new URL('../',import.meta.url);
 const read=p=>fs.readFileSync(new URL(p,here),'utf8');
-const names=['index.html','style.css','app.js','calendar.js','discovery.js','places.js','profile-documents.js','vendor/pdf.mjs','vendor/pdf.worker.mjs','vendor/pdfjs-LICENSE.txt','assets/fight-on-campus.jpg','map-model.js','live-map.js','eligibility.js','recommendation.js','organizers.js','trust.js','vendor/leaflet.js','vendor/leaflet.css','vendor/leaflet-LICENSE.txt'];
+const names=['index.html','style.css','app.js','calendar.js','discovery.js','places.js','profile-documents.js','vendor/pdf.mjs','vendor/pdf.worker.mjs','vendor/pdfjs-LICENSE.txt','assets/fight-on-campus.jpg','assets/jacqueline-avatar.jpg','map-model.js','live-map.js','eligibility.js','recommendation.js','organizers.js','trust.js','vendor/leaflet.js','vendor/leaflet.css','vendor/leaflet-LICENSE.txt'];
 names.push(...fs.readdirSync(new URL('public/assets/event-posters/',here)).map(f=>'assets/event-posters/'+f));
 const assets=Object.fromEntries(names.map(f=>{const binary=/\.(jpg|png|webp|gif)$/.test(f);return ['/'+f,{body:fs.readFileSync(new URL('public/'+f,here),binary?'base64':'utf8'),...(binary?{encoding:'base64'}:{}),type:f.endsWith('.css')?'text/css;charset=utf-8':/\.m?js$/.test(f)?'application/javascript;charset=utf-8':f.endsWith('.jpg')?'image/jpeg':f.endsWith('.png')?'image/png':f.endsWith('.gif')?'image/gif':f.endsWith('.webp')?'image/webp':f.endsWith('.txt')?'text/plain;charset=utf-8':'text/html;charset=utf-8'}]}));
 const seed=JSON.parse(read('data/public-events.json'));
@@ -19,6 +19,7 @@ const calendarWorker=read('worker/google-calendar.mjs').replace(/export /g,'');
 const claimWorker=read('worker/organization-claims.mjs').replace(/export /g,'');
 const posterWorker=read('worker/posters.mjs').replace(/export /g,'');
 const emailWorker=read('worker/email-intake.mjs').replace(/export /g,'');
-fs.writeFileSync(new URL('dist/server/index.js',here),data+'\n'+organizerShared+'\n'+eligibilityShared+'\n'+shared+'\n'+calendarWorker+'\n'+emailWorker+'\n'+posterWorker+'\n'+claimWorker+'\n'+generated+'\n'+worker);
+const recommendationWorker=read('worker/personal-recommendations.mjs').replace(/^import .*;\n/gm,'').replace(/export /g,'');
+fs.writeFileSync(new URL('dist/server/index.js',here),data+'\n'+organizerShared+'\n'+eligibilityShared+'\n'+shared+'\n'+calendarWorker+'\n'+emailWorker+'\n'+recommendationWorker+'\n'+posterWorker+'\n'+claimWorker+'\n'+generated+'\n'+worker);
 
 console.log(`Built Worker with ${seed.events.length} public event instances and ${imports.length} reviewed public imports.`);
